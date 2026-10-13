@@ -1,0 +1,44 @@
+name: sona-x402-base
+schema: schema.base.graphql
+handlers: src/handlers-base
+disable_default_cross_chain: true
+address_format: lowercase
+rollback_on_reorg: true
+contracts:
+  - name: Eip3009
+    events:
+      - event: AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)
+  - name: ExactProxy
+    events:
+      - event: Settled()
+      - event: SettledWithPermit()
+  - name: UptoProxy
+    events:
+      - event: Settled()
+      - event: SettledWithPermit()
+  - name: UsdcMint
+    events:
+      - event: Transfer(address indexed from, address indexed to, uint256 value)
+chains:
+  - id: 8453
+    start_block: 51234126
+    hypersync_config:
+      url: https://base.hypersync.xyz
+    rpc:
+      - url: ${ENVIO_BASE_RPC_URL:-https://mainnet.base.org}
+        for: fallback
+        initial_block_interval: 250
+        interval_ceiling: 1000
+    contracts:
+      - name: Eip3009
+        address: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        start_block: 51234126
+      - name: ExactProxy
+        address: "0x402085c248eea27d92e8b30b2c58ed07f9e20001"
+        start_block: 51234126
+      - name: UptoProxy
+        address: "0x4020a4f3b7b90cca423b9fabcc0ce57c6c240002"
+        start_block: 51234126
+      - name: UsdcMint
+        address: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        start_block: 51234126

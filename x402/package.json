@@ -1,0 +1,28 @@
+{
+  "name": "sona-x402-indexer",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.32.0",
+  "scripts": {
+    "codegen": "envio codegen",
+    "codegen:base": "envio codegen --config config.base.yaml",
+    "start": "envio start",
+    "typecheck": "envio codegen && tsc --noEmit",
+    "typecheck:base": "envio codegen --config config.base.yaml && tsc -p tsconfig.base.json --noEmit",
+    "test": "envio codegen && vitest run src/lib src/handlers/",
+    "test:base": "envio codegen --config config.base.yaml && ENVIO_CONFIG=config.base.yaml vitest run src/lib src/handlers-base/",
+    "test:fixtures": "envio codegen && vitest run test/"
+  },
+  "dependencies": {
+    "envio": "3.14.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.12.2",
+    "typescript": "6.0.3",
+    "vitest": "4.1.0"
+  },
+  "engines": {
+    "node": ">=22.15.0"
+  }
+}

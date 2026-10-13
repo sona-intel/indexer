@@ -1,0 +1,40 @@
+name: sona-x402
+disable_default_cross_chain: true
+address_format: lowercase
+rollback_on_reorg: true
+contracts:
+  - name: Eip3009
+    events:
+      - event: AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)
+  - name: ExactProxy
+    events:
+      - event: Settled()
+      - event: SettledWithPermit()
+  - name: UptoProxy
+    events:
+      - event: Settled()
+      - event: SettledWithPermit()
+  - name: UsdcMint
+    events:
+      - event: Transfer(address indexed from, address indexed to, uint256 value)
+chains:
+  - id: 143
+    start_block: 0
+    hypersync_config:
+      url: https://monad.hypersync.xyz
+    rpc:
+      - url: ${ENVIO_MONAD_RPC_URL:-http://rpc-router:4000/sona-history/monad}
+        for: fallback
+        initial_block_interval: 250
+        interval_ceiling: 1000
+    contracts:
+      - name: Eip3009
+      - name: ExactProxy
+        address: "0x402085c248eea27d92e8b30b2c58ed07f9e20001"
+        start_block: 65109722
+      - name: UptoProxy
+        address: "0x4020a4f3b7b90cca423b9fabcc0ce57c6c240002"
+        start_block: 75835894
+      - name: UsdcMint
+        address: "0x754704bc059f8c67012fed69bc8a327a5aafb603"
+        start_block: 22909616

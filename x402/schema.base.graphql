@@ -1,0 +1,31 @@
+type X402Payment {
+  id: ID!
+  blockNumber: Int! @index
+  blockTime: Int!
+  txHash: String!
+  logIndex: Int!
+  method: String!
+  token: String
+  payer: String
+  payee: String
+  amount: BigInt
+  nonce: String
+  validAfter: BigInt
+  validBefore: BigInt
+  relayer: String
+  txTo: String
+  selector: String
+  gasCost: BigInt
+  builderCodes: String
+}
+
+type UsdcMint {
+  id: ID!
+  blockNumber: Int! @index
+  blockTime: Int!
+  txHash: String!
+  recipient: String!
+  amount: BigInt!
+  relayer: String
+  txTo: String
+}
