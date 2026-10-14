@@ -25,5 +25,5 @@
     "lib": ["es2023"],
     "types": ["node"]
   },
-  "exclude": ["node_modules", "src/handlers-base"]
+  "exclude": ["node_modules", "src/handlers-base", "src/handlers-arc"]
 }

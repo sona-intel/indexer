@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "src/handlers", "test/fixtures.test.ts"]
+  "exclude": ["node_modules", "src/handlers", "src/handlers-arc", "test/fixtures.test.ts"]
 }
