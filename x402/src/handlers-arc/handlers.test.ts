@@ -116,6 +116,30 @@ describe("authorization handler", () => {
       amount: undefined,
     });
   });
+
+  it("decodes a token call routed through Multicall3", async (t) => {
+    const multicall = "0xca11bde05977b3631167028862be2a173976ca11";
+    const input = calldata("0x174dea71", 32n, 1n) + calldata("0xe3ee160e", payer, payee, 1000n, 0n, 1770136304n, nonce, ...sig).slice(2);
+    const i = await run([
+      {
+        contract: "Eip3009",
+        event: "AuthorizationUsed",
+        srcAddress: USDC,
+        logIndex: 7,
+        block: { number: 22371319, timestamp: 1790000000 },
+        params: { authorizer: payer, nonce },
+        transaction: { hash: TX, from: RELAYER, to: multicall, input, gas: 200000n, gasPrice: 160000000000n },
+      },
+    ]);
+    t.expect(await i.X402Payment.get("5042_22371319_7")).toMatchObject({
+      method: "eip3009_routed",
+      payee,
+      amount: 1000n,
+      validBefore: 1770136304n,
+      txTo: multicall,
+      selector: "0x174dea71",
+    });
+  });
 });
 
 describe("permit2 handler", () => {

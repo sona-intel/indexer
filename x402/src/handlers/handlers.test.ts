@@ -1,5 +1,6 @@
 import { createTestIndexer, type TestIndexer } from "envio";
 import { describe, it } from "vitest";
+import routed from "../../test/routed.json";
 import { calldata } from "../../test/support";
 
 type Item = NonNullable<NonNullable<Parameters<TestIndexer["process"]>[0]["chains"][143]>["simulate"]>[number];
@@ -23,6 +24,9 @@ const owner = "0xd156f8adf8ada32470282b4fc6ba0ddd36c7352d";
 const to = "0x1c47e9c085c2b7458f5b6c16ccbd65a65255a9f6";
 const exact = [USDC, 1000n, "0xfe1a592bc8", 1791213857n, owner, to, 1791209657n];
 const upto = [USDC, 5000n, "0xabc36af9e1", 1791213881n, 1200n, owner, to, CACE, 1791209681n];
+
+// the fixture file holds plain strings, the generated event types want hex
+const hex = (s: string) => s as `0x${string}`;
 
 async function run(simulate: Sim<Item>[]) {
   const indexer = createTestIndexer();
@@ -116,6 +120,32 @@ describe("authorization handler", () => {
       selector: "0x140f1e75",
       payee: undefined,
       amount: undefined,
+    });
+  });
+
+  it("decodes a token call routed through Multicall3", async (t) => {
+    const r = routed.find((x) => x.chain === 143 && x.routed);
+    if (r === undefined) throw new Error("no Monad routed fixture");
+    const i = await run([
+      {
+        contract: "Eip3009",
+        event: "AuthorizationUsed",
+        srcAddress: hex(r.emitter),
+        logIndex: r.logIndex,
+        block: { number: r.block, timestamp: 1790000000 },
+        params: { authorizer: hex(r.authorizer), nonce: r.nonce },
+        transaction: { hash: r.hash, from: r.relayer, to: r.txTo, input: r.input, gas: 200000n, gasPrice: 100000000000n },
+      },
+    ]);
+    t.expect(await i.X402Payment.get(`143_${r.block}_${r.logIndex}`)).toMatchObject({
+      method: "eip3009_routed",
+      token: r.emitter,
+      payer: r.authorizer,
+      payee: r.transfer?.to,
+      amount: BigInt(r.transfer?.value ?? -1),
+      relayer: r.relayer,
+      txTo: r.txTo,
+      selector: "0x82ad56cb",
     });
   });
 });

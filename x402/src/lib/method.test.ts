@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import routed from "../../test/routed.json";
 import { calldata } from "../../test/support";
 import { classifyAuthorization, decodeSettlement } from "./method";
 
@@ -63,6 +64,45 @@ describe("classifyAuthorization", () => {
     ["an input without the 0x prefix", { input: transfer.slice(2) }],
   ])("falls back to other with %s", (_n, over) =>
     expect(classifyAuthorization({ ...a, ...over })).toEqual({ method: "other" }));
+});
+
+describe("classifyAuthorization of a routed call", () => {
+  const MULTICALL = "0xca11bde05977b3631167028862be2a173976ca11";
+  const inner = transfer.slice(2);
+  const a = { emitter: USDC, authorizer: payer, nonce, txTo: MULTICALL };
+  const decoded = { payee, amount: 1000n, validAfter: 0n, validBefore: 1770136304n };
+
+  it("reads the token call inside another contract's input", () =>
+    expect(classifyAuthorization({ ...a, input: calldata("0x82ad56cb", 32n, 1n) + inner })).toEqual({
+      method: "eip3009_routed",
+      ...decoded,
+    }));
+
+  it("reads a token call that starts off the word grid", () =>
+    expect(classifyAuthorization({ ...a, input: "0x9aefaff8" + "ab".repeat(17) + inner })).toEqual({
+      method: "eip3009_routed",
+      ...decoded,
+    }));
+
+  it("skips an earlier copy of the nonce", () =>
+    expect(classifyAuthorization({ ...a, input: calldata("0x82ad56cb", nonce, ...head, 0n) + inner })).toEqual({
+      method: "eip3009_routed",
+      ...decoded,
+    }));
+
+  it.each([
+    ["receiveWithAuthorization", calldata("0x82ad56cb", 1n) + calldata("0xef55bec6", ...head, ...sig).slice(2)],
+    ["no token selector before the head", calldata("0x82ad56cb", 1n, ...head, ...sig)],
+    ["another authorizer", calldata("0x82ad56cb", 1n) + calldata("0xe3ee160e", payee, payee, 1000n, 0n, 1n, nonce).slice(2)],
+    ["a head half a byte off", "0x82ad56cb0" + inner],
+    ["a head cut short", calldata("0x82ad56cb", 1n) + inner.slice(0, 8 + 5 * 64 + 10)],
+  ])("keeps other with %s", (_n, input) => expect(classifyAuthorization({ ...a, input })).toEqual({ method: "other" }));
+
+  it.each(routed)("$name", (r) => {
+    const got = classifyAuthorization({ emitter: r.emitter, authorizer: r.authorizer, nonce: r.nonce, txTo: r.txTo, input: r.input });
+    if (!r.routed) return expect(got).toEqual({ method: "other" });
+    expect(got).toMatchObject({ method: "eip3009_routed", payee: r.transfer?.to, amount: BigInt(r.transfer?.value ?? -1) });
+  });
 });
 
 describe("decodeSettlement", () => {

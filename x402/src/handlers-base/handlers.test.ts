@@ -1,5 +1,6 @@
 import { createTestIndexer, type TestIndexer } from "envio";
 import { describe, it } from "vitest";
+import routed from "../../test/routed.json";
 import { calldata } from "../../test/support";
 
 type Item = NonNullable<NonNullable<Parameters<TestIndexer["process"]>[0]["chains"][8453]>["simulate"]>[number];
@@ -19,6 +20,9 @@ const TX = "0xdfab5948beeb75ea2bfa333df9a8a5487a831b7c94cb9c041a9a117ccf55fd25";
 const CDP = "0x1111111111111111111111111111111111111111";
 const ZERO = "0x0000000000000000000000000000000000000000";
 const cdpSuffix = "a1" + "61" + "77" + "6a" + Buffer.from("cdp_facil1").toString("hex") + "000e" + "02" + MARKER;
+
+// the fixture file holds plain strings, the generated event types want hex
+const hex = (s: string) => s as `0x${string}`;
 
 async function run(simulate: Sim<Item>[]) {
   const indexer = createTestIndexer();
@@ -105,6 +109,31 @@ describe("base authorization handler", () => {
       },
     ]);
     t.expect(await i.X402Payment.get("8453_51234203_6")).toMatchObject({ method: "batch_deposit", txTo: BATCH });
+  });
+
+  it("decodes a PayAI settlement routed through Multicall3", async (t) => {
+    const r = routed.find((x) => x.chain === 8453 && x.relayer === "0xc6699d2aada6c36dfea5c248dd70f9cb0235cb63");
+    if (r === undefined) throw new Error("no PayAI routed fixture");
+    const i = await run([
+      {
+        contract: "Eip3009",
+        event: "AuthorizationUsed",
+        srcAddress: USDC,
+        logIndex: r.logIndex,
+        block: { number: r.block, timestamp: 1790000000 },
+        params: { authorizer: hex(r.authorizer), nonce: r.nonce },
+        transaction: { hash: r.hash, from: r.relayer, to: r.txTo, input: r.input, gas: 200000n, gasPrice: 5000000n },
+      },
+    ]);
+    t.expect(await i.X402Payment.get(`8453_${r.block}_${r.logIndex}`)).toMatchObject({
+      method: "eip3009_routed",
+      payer: r.authorizer,
+      payee: "0x13c3c28c64cc9d60eeb8a675f3fe27ebc6a4cd09",
+      amount: 10000n,
+      relayer: r.relayer,
+      txTo: "0xca11bde05977b3631167028862be2a173976ca11",
+      selector: "0x82ad56cb",
+    });
   });
 });
 

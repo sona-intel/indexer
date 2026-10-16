@@ -4,6 +4,7 @@ import { selectorOf } from "./ids";
 export type Method =
   | "eip3009_transfer"
   | "eip3009_receive"
+  | "eip3009_routed"
   | "batch_deposit"
   | "permit2_exact"
   | "permit2_upto"
@@ -28,6 +29,8 @@ const EIP3009_METHOD = new Map<string, Method>([
   ["0x88b7ab63", "eip3009_receive"],
 ]);
 const EIP3009_HEAD_WORDS = 6;
+const SELECTOR_HEX = 8;
+const WORD_HEX = 64;
 
 const SETTLE = {
   exact: {
@@ -59,18 +62,20 @@ export function classifyAuthorization(a: {
 }): Decoded {
   const txTo = a.txTo?.toLowerCase();
   if (txTo === BATCH) return { method: "batch_deposit" };
-  if (txTo === undefined || txTo !== a.emitter.toLowerCase() || a.input === undefined) return { method: "other" };
+  if (txTo === undefined || a.input === undefined) return { method: "other" };
+  if (txTo !== a.emitter.toLowerCase()) return routedCall(a.input, a.authorizer, a.nonce);
+  return tokenCall(a.input, a.authorizer, a.nonce) ?? { method: "other" };
+}
 
-  const selector = selectorOf(a.input);
+function tokenCall(call: string, authorizer: string, nonce: string): Decoded | undefined {
+  const selector = selectorOf(call);
   const method = selector === undefined ? undefined : EIP3009_METHOD.get(selector);
-  if (method === undefined) return { method: "other" };
+  if (method === undefined) return undefined;
 
-  const w = words(a.input, 0, EIP3009_HEAD_WORDS);
-  if (w === undefined) return { method: "other" };
-  const [from, to, value, validAfter, validBefore, nonce] = w as [string, string, string, string, string, string];
-  if (addressWord(from) !== a.authorizer.toLowerCase() || nonceWord(nonce) !== a.nonce.toLowerCase()) {
-    return { method: "other" };
-  }
+  const w = words(call, 0, EIP3009_HEAD_WORDS);
+  if (w === undefined) return undefined;
+  const [from, to, value, validAfter, validBefore, n] = w as [string, string, string, string, string, string];
+  if (addressWord(from) !== authorizer.toLowerCase() || nonceWord(n) !== nonce.toLowerCase()) return undefined;
   return {
     method,
     payee: addressWord(to),
@@ -78,6 +83,19 @@ export function classifyAuthorization(a: {
     validAfter: uintWord(validAfter),
     validBefore: uintWord(validBefore),
   };
+}
+
+// a multicall or router puts the token call anywhere in its input, often off the word grid, so the event nonce finds it
+function routedCall(input: string, authorizer: string, nonce: string): Decoded {
+  const hex = input.toLowerCase();
+  const needle = nonce.slice(2).toLowerCase();
+  if (needle.length !== WORD_HEX) return { method: "other" };
+  const back = SELECTOR_HEX + (EIP3009_HEAD_WORDS - 1) * WORD_HEX;
+  for (let at = hex.indexOf(needle, 2 + back); at >= 0; at = hex.indexOf(needle, at + 1)) {
+    const d = at % 2 === 0 ? tokenCall("0x" + hex.slice(at - back), authorizer, nonce) : undefined;
+    if (d?.method === "eip3009_transfer") return { ...d, method: "eip3009_routed" };
+  }
+  return { method: "other" };
 }
 
 export function decodeSettlement(
